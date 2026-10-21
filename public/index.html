@@ -202,11 +202,21 @@
   .seq-name small { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: 1px; margin-left: 6px; }
   .strip { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 6px; scrollbar-width: thin; -webkit-overflow-scrolling: touch; min-height: 66px; }
   .cell {
+    position: relative;
     flex: none; min-width: 72px; height: 58px; padding: 0 10px; border-radius: 10px;
     border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.03);
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer;
-    transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+    transition: background 0.12s, border-color 0.12s, box-shadow 0.12s, transform 0.18s ease;
+    touch-action: pan-x;
+    -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
   }
+  .cell.dragging {
+    z-index: 5; cursor: grabbing;
+    transition: box-shadow 0.15s, background 0.15s;
+    background: rgba(60,70,140,0.95); border-color: #aabbff;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.6), 0 0 0 1px #aabbff;
+  }
+  .strip.drag-mode { scroll-behavior: auto; }
   .cell-name { font-size: 17px; font-style: italic; color: #c8d0f5; white-space: nowrap; max-width: 130px; overflow: hidden; text-overflow: ellipsis; }
   .cell-beats { font-family: var(--mono); font-size: 8px; color: var(--muted); letter-spacing: 1px; }
   .cell.sel { border-color: #aabbff; box-shadow: 0 0 0 1px #aabbff inset; }
@@ -341,9 +351,8 @@
         <div class="cell-actions" id="cellActions">
           <div class="row">
             <button class="btn small" id="btnReplace" onclick="replaceCell()">Remplacer</button>
+            <button class="btn small" onclick="renameCell()">Renommer</button>
             <button class="btn small" onclick="duplicateCell()">Dupliquer</button>
-            <button class="btn small icon" onclick="moveCell(-1)" aria-label="Déplacer à gauche">←</button>
-            <button class="btn small icon" onclick="moveCell(1)" aria-label="Déplacer à droite">→</button>
             <button class="btn small icon danger" onclick="deleteCell()" aria-label="Supprimer">✕</button>
           </div>
           <div class="beats" id="beats"><span class="beats-label">Temps</span></div>
@@ -362,7 +371,7 @@
         </div>
       </div>
 
-      <div class="hint" id="hint">Touche une case pour l'entendre (re-touche pour couper) · Lire enchaîne la suite au tempo</div>
+      <div class="hint" id="hint">Touche une case pour l'entendre (re-touche pour couper) · Appui long puis glisser pour la déplacer · Lire enchaîne la suite au tempo</div>
     </section>
 
     <section class="col">
@@ -906,7 +915,12 @@ let prog = null;
 function normalize(p) {
   if (!p || p.deleted) return p;
   if (!Array.isArray(p.chords)) p.chords = [];
-  p.chords.forEach(c => { if (!c.id) c.id = uid(); if (!BEAT_CHOICES.includes(c.beats)) c.beats = 4; c.notes = sortIds(c.notes || []); });
+  p.chords.forEach(c => {
+    if (!c.id) c.id = uid();
+    if (!BEAT_CHOICES.includes(c.beats)) c.beats = 4;
+    c.notes = sortIds(c.notes || []);
+    if (typeof c.label !== 'string' || !c.label.trim()) delete c.label;
+  });
   if (!(p.bpm >= 40 && p.bpm <= 200)) p.bpm = 80;
   if (typeof p.loop !== 'boolean') p.loop = true;
   if (!p.name) p.name = 'Sans titre';
@@ -1100,12 +1114,15 @@ BEAT_CHOICES.forEach(b => {
 });
 
 function renderStrip() {
+  // Pas de reconstruction pendant un glisser (la lecture auto continue)
+  if (drag && drag.active) { stripDirty = true; return; }
+  stripDirty = false;
   const strip = $('strip');
   const live = playState === 'manual' || playState === 'auto';
   strip.innerHTML = prog.chords.length
     ? prog.chords.map((c, i) =>
         `<button class="cell ${i === selIdx ? 'sel' : ''} ${live && i === playIdx ? 'playing' : ''}" onclick="onCellTap(${i})">
-           <span class="cell-name">${esc(chordLabel(c.notes))}</span>
+           <span class="cell-name">${esc(c.label || chordLabel(c.notes))}</span>
            <span class="cell-beats">${c.beats} T</span>
          </button>`).join('')
     : '<div class="strip-empty">Pose un accord au clavier, puis « + Ajouter »</div>';
@@ -1150,7 +1167,9 @@ function replaceCell() {
 function duplicateCell() {
   if (selIdx < 0) return;
   const c = prog.chords[selIdx];
-  prog.chords.splice(selIdx + 1, 0, { id: uid(), notes: c.notes.slice(), beats: c.beats });
+  const copy = { id: uid(), notes: c.notes.slice(), beats: c.beats };
+  if (c.label) copy.label = c.label;
+  prog.chords.splice(selIdx + 1, 0, copy);
   if (playIdx > selIdx) playIdx++;
   selIdx++;
   touch();
@@ -1165,14 +1184,131 @@ function deleteCell() {
   if (!prog.chords.length && playState === 'auto') stopAll();
   touch(); renderTransport();
 }
-function moveCell(d) {
-  const j = selIdx + d;
-  if (selIdx < 0 || j < 0 || j >= prog.chords.length) return;
-  const arr = prog.chords;
-  [arr[selIdx], arr[j]] = [arr[j], arr[selIdx]];
-  if (playIdx === selIdx) playIdx = j; else if (playIdx === j) playIdx = selIdx;
-  selIdx = j;
+function renameCell() {
+  if (selIdx < 0) return;
+  const c = prog.chords[selIdx];
+  const auto = chordLabel(c.notes);
+  const v = prompt('Nom de la case (vide = nom automatique)', c.label || auto);
+  if (v === null) return;
+  const t = v.trim().slice(0, 40);
+  if (!t || t === auto) delete c.label; else c.label = t;
   touch();
+}
+
+// ── Réordonner : appui long sur une case puis glisser ──
+const LONG_PRESS_MS = 350, MOVE_TOL = 8, EDGE = 44;
+let drag = null, suppressClick = false, stripDirty = false;
+const stripEl = $('strip');
+
+stripEl.addEventListener('pointerdown', e => {
+  const cell = e.target.closest('.cell');
+  if (!cell || drag) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  const idx = [...stripEl.querySelectorAll('.cell')].indexOf(cell);
+  drag = { idx, cell, pointerId: e.pointerId, type: e.pointerType, x0: e.clientX, y0: e.clientY, x: e.clientX, active: false };
+  drag.timer = setTimeout(startDrag, LONG_PRESS_MS);
+});
+window.addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  drag.x = e.clientX;
+  if (!drag.active) {
+    // Bouger avant l'appui long = défilement (doigt) ou glisser direct (souris)
+    if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > MOVE_TOL) {
+      if (drag.type === 'mouse') startDrag(); else cancelPending();
+    }
+    return;
+  }
+  layoutDrag();
+});
+window.addEventListener('pointerup', endDrag);
+window.addEventListener('pointercancel', endDrag);
+// Bloque le défilement de la page / de la bande pendant le glisser (iOS)
+stripEl.addEventListener('touchmove', e => { if (drag && drag.active) e.preventDefault(); }, { passive: false });
+stripEl.addEventListener('contextmenu', e => e.preventDefault());
+// Après un glisser, le « clic » qui suit ne doit pas jouer la case
+stripEl.addEventListener('click', e => {
+  if (suppressClick) { e.stopPropagation(); e.preventDefault(); suppressClick = false; }
+}, true);
+
+function cancelPending() {
+  if (drag) clearTimeout(drag.timer);
+  drag = null;
+}
+function startDrag() {
+  if (!drag || drag.active) return;
+  clearTimeout(drag.timer);
+  const cells = [...stripEl.querySelectorAll('.cell')];
+  const sr = stripEl.getBoundingClientRect();
+  drag.cells = cells;
+  drag.rects = cells.map(c => { const r = c.getBoundingClientRect(); return { left: r.left - sr.left + stripEl.scrollLeft, width: r.width }; });
+  const gap = cells.length > 1 ? drag.rects[1].left - (drag.rects[0].left + drag.rects[0].width) : 6;
+  drag.shift = drag.rects[drag.idx].width + gap;
+  drag.target = drag.idx;
+  drag.x0 = drag.x;
+  drag.scroll0 = stripEl.scrollLeft;
+  drag.active = true;
+  drag.cell.classList.add('dragging');
+  drag.cell.style.transform = 'scale(1.06)';
+  stripEl.classList.add('drag-mode');
+  try { drag.cell.setPointerCapture(drag.pointerId); } catch (e) {}
+  drag.raf = requestAnimationFrame(dragLoop);
+}
+function layoutDrag() {
+  const dx = drag.x - drag.x0 + (stripEl.scrollLeft - drag.scroll0);
+  drag.cell.style.transform = `translateX(${dx}px) scale(1.06)`;
+  const r = drag.rects[drag.idx];
+  const center = r.left + r.width / 2 + dx;
+  let t = 0;
+  drag.rects.forEach((o, j) => { if (j !== drag.idx && o.left + o.width / 2 < center) t++; });
+  drag.target = t;
+  drag.cells.forEach((c, j) => {
+    if (j === drag.idx) return;
+    let s = 0;
+    if (j > drag.idx && j <= t) s = -drag.shift;        // la case est passée devant : on recule
+    else if (j < drag.idx && j >= t) s = drag.shift;    // la case est passée derrière : on avance
+    c.style.transform = s ? `translateX(${s}px)` : '';
+  });
+}
+// Défilement automatique de la bande quand le doigt approche d'un bord
+function dragLoop() {
+  if (!drag || !drag.active) return;
+  const sr = stripEl.getBoundingClientRect();
+  let v = 0;
+  if (drag.x < sr.left + EDGE) v = -Math.ceil((sr.left + EDGE - drag.x) / 4);
+  else if (drag.x > sr.right - EDGE) v = Math.ceil((drag.x - (sr.right - EDGE)) / 4);
+  if (v) {
+    const before = stripEl.scrollLeft;
+    stripEl.scrollLeft += v;
+    if (stripEl.scrollLeft !== before) layoutDrag();
+  }
+  drag.raf = requestAnimationFrame(dragLoop);
+}
+function endDrag(e) {
+  if (!drag || (e && e.pointerId !== drag.pointerId)) return;
+  clearTimeout(drag.timer);
+  const d = drag;
+  drag = null;
+  if (!d.active) return;                 // simple toucher : le clic normal s'en occupe
+  cancelAnimationFrame(d.raf);
+  stripEl.classList.remove('drag-mode');
+  suppressClick = true;
+  setTimeout(() => { suppressClick = false; }, 400);
+  const from = d.idx, to = d.target;
+  if (from !== to) {
+    const [c] = prog.chords.splice(from, 1);
+    prog.chords.splice(to, 0, c);
+    const remap = i => {
+      if (i < 0) return i;
+      if (i === from) return to;
+      if (from < to && i > from && i <= to) return i - 1;
+      if (from > to && i >= to && i < from) return i + 1;
+      return i;
+    };
+    playIdx = remap(playIdx);
+  }
+  selIdx = to;
+  touch();                                // reconstruit la bande (efface les décalages)
+  renderTransport();
 }
 function setBeats(b) {
   if (selIdx < 0) return;
