@@ -1,4 +1,4 @@
-name = "piano-drone"
+name = "piano-drone-app"
 main = "src/worker.js"
 compatibility_date = "2025-09-01"
 

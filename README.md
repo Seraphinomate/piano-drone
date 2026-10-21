@@ -13,7 +13,7 @@ et des suites d'accords jouées par-dessus, synchronisées entre appareils.
    nom `piano-drone-lib`. Copier son **ID** et le mettre dans `wrangler.toml` (`id = "…"`).
 2. **Relier le dépôt** — *Workers & Pages* → *Create* → *Import a repository* → choisir
    `piano-drone`. Laisser la commande de déploiement par défaut (`npx wrangler deploy`).
-   Le nom du Worker doit rester `piano-drone`.
+   Le nom du Worker doit être `piano-drone-app` (comme dans wrangler.toml).
 3. **Code d'accès** — dans le Worker : *Settings* → *Variables and Secrets* → *Add* →
    type **Secret**, nom `ACCESS_CODE`, valeur = ton code. Enregistrer / redéployer.
 
