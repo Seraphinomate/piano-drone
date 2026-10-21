@@ -1,0 +1,17 @@
+name = "piano-drone"
+main = "src/worker.js"
+compatibility_date = "2025-09-01"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# Base de données des suites.
+# Remplacer l'id par celui du namespace KV créé dans le tableau de bord Cloudflare
+# (Storage & Databases → KV → piano-drone-lib).
+[[kv_namespaces]]
+binding = "LIB"
+id = "REMPLACER_PAR_L_ID_DU_KV"
+
+# Le code d'accès n'est PAS ici : il se définit comme secret « ACCESS_CODE »
+# dans Settings → Variables and Secrets du Worker.
