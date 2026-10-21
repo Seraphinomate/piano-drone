@@ -11,7 +11,7 @@ binding = "ASSETS"
 # (Storage & Databases → KV → piano-drone-lib).
 [[kv_namespaces]]
 binding = "LIB"
-id = "REMPLACER_PAR_L_ID_DU_KV"
+id = "7a8e1e97c43e453e8661d27bc986dcbf"
 
 # Le code d'accès n'est PAS ici : il se définit comme secret « ACCESS_CODE »
 # dans Settings → Variables and Secrets du Worker.
