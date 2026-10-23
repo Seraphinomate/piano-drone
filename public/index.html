@@ -10,7 +10,7 @@
 <title>Piano — Chord Builder + Drone</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=4">
+<link rel="stylesheet" href="css/app.css?v=6">
 </head>
 <body>
 <div class="app">
@@ -139,7 +139,7 @@
         </div>
 
         <div class="transport pad-transport" id="padTransport">
-          <button class="btn stop" id="btnPadStop" onclick="stopAll()">■</button>
+          <button class="btn primary" id="btnPadStop" onclick="togglePadPlay()" aria-label="Lire / arrêter">▶</button>
           <div class="bpm">
             <button class="btn small icon" onclick="nudgeBpm(-1)" aria-label="Tempo moins">−</button>
             <input id="padBpmInput" type="number" inputmode="numeric" min="40" max="200" onchange="setBpm(this.value)">
@@ -219,15 +219,15 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="js/util.js?v=4"></script>
-<script src="js/keyboard.js?v=4"></script>
-<script src="js/editor.js?v=4"></script>
-<script src="js/audio.js?v=4"></script>
-<script src="js/drone.js?v=4"></script>
-<script src="js/library.js?v=4"></script>
-<script src="js/sortable.js?v=4"></script>
-<script src="js/sequence.js?v=4"></script>
-<script src="js/pads.js?v=4"></script>
-<script src="js/main.js?v=4"></script>
+<script src="js/util.js?v=6"></script>
+<script src="js/keyboard.js?v=6"></script>
+<script src="js/editor.js?v=6"></script>
+<script src="js/audio.js?v=6"></script>
+<script src="js/drone.js?v=6"></script>
+<script src="js/library.js?v=6"></script>
+<script src="js/sortable.js?v=6"></script>
+<script src="js/sequence.js?v=6"></script>
+<script src="js/pads.js?v=6"></script>
+<script src="js/main.js?v=6"></script>
 </body>
 </html>

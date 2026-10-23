@@ -120,7 +120,12 @@ function renderPads() {
 
   // transport
   $('padTransport').hidden = padEdit;
-  $('btnPadStop').disabled = !['pad', 'duo', 'chain'].includes(playState);
+  // ▶ / ■ : lance ce qui est prêt dans le mode (chaîne, duo, dernier pad joué) ou arrête
+  const playing = ['pad', 'duo', 'chain'].includes(playState);
+  const btn = $('btnPadStop');
+  btn.textContent = playing ? '■' : '▶';
+  btn.className = 'btn ' + (playing ? 'stop' : 'primary');
+  btn.disabled = !playing && (!samplerReady || !padPlayable());
   $('padBpmInput').value = prog.bpm;
   document.querySelector('#padTransport .bpm').hidden = padMode === 'libre';
   const sel = $('padBeats');
@@ -384,6 +389,31 @@ const chainSort = makeSortable($('chainChips'), '.chip', (from, to) => {
   }
   renderPads();
 });
+
+// ── Bouton ▶ / ■ ──
+function padPlayable() {
+  if (padMode === 'chaine') return prog.chain.some(id => padById(id));
+  if (padMode === 'duo') return !!padById(duoA);
+  return fil.some(id => padById(id));
+}
+async function togglePadPlay() {
+  if (['pad', 'duo', 'chain'].includes(playState)) { stopAll(); return; }
+  if (!samplerReady || !(await audioStart())) return;
+  if (padMode === 'chaine') {
+    const steps = padLoopSteps('chain');
+    if (steps.length >= 2) return startPadLoop('chain', chainSel >= 0 && chainSel < steps.length ? chainSel : 0);
+    if (steps.length === 1) { stopAll(); playState = 'pad'; soundPad(steps[0]); renderPads(); renderTransport(); }
+    return;
+  }
+  if (padMode === 'duo') {
+    if (padById(duoA) && padById(duoB)) return startPadLoop('duo', 0);
+    const a = padById(duoA);
+    if (a) { stopAll(); playState = 'pad'; soundPad(a); renderPads(); renderTransport(); }
+    return;
+  }
+  const last = [...fil].reverse().map(padById).find(Boolean);   // Libre : rejoue le dernier pad
+  if (last) { stopAll(); playState = 'pad'; soundPad(last); renderPads(); renderTransport(); }
+}
 
 // ── Boucle au tempo (Duo et Chaîne) ──
 function padLoopSteps(kind) {

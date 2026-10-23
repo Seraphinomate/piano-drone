@@ -46,6 +46,7 @@ function setReady(label, isError) {
   statusEl.className = 'status ' + (isError ? 'error' : 'ready');
   statusEl.textContent = '◈ ' + label;
   updateUI(); renderTransport();
+  if (typeof renderPads === 'function') renderPads();
 }
 function reconnectSampler() {
   if (!sampler) return;
