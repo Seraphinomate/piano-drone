@@ -65,7 +65,7 @@ function togglePadEdit() {
 // ── Rendu ──
 const HELP = {
   empty:   'Pose un accord au clavier, puis touche + pour en faire un pad',
-  edit:    'Touche un pad pour le renommer, le remplacer, le déplacer ou le supprimer',
+  edit:    'Touche un pad : ses notes s\'affichent au clavier · modifie-les puis « Remplacer »',
   libre:   'Touche les pads : chacun enchaîne avec le précédent · ■ pour arrêter',
   duoA:    'Touche un pad : il devient l\'ancre A',
   duo:     'Touche d\'autres pads pour entendre A → B en boucle · touche A pour changer d\'ancre',
@@ -281,7 +281,14 @@ document.addEventListener('click', e => { if (!e.target.closest('.menu-wrap')) c
 
 // ── Jouer ──
 async function onPadTap(id) {
-  if (padEdit) { selPadId = selPadId === id ? null : id; renderPads(); return; }
+  if (padEdit) {
+    selPadId = selPadId === id ? null : id;
+    // Les notes du pad sélectionné arrivent sur le clavier, prêtes à être modifiées
+    const sp = padById(selPadId);
+    if (sp) { setSelectedNotes(sp.notes); revealNotes(sp.notes); }
+    renderPads();
+    return;
+  }
   const p = padById(id); if (!p) return;
   if (!samplerReady || !(await audioStart())) { setSelectedNotes(p.notes); revealNotes(p.notes); return; }
   if (padMode === 'libre') return playLibre(p);
