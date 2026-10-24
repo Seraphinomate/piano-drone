@@ -66,7 +66,7 @@ function togglePadEdit() {
 const HELP = {
   empty:   'Pose un accord au clavier, puis touche + pour en faire un pad',
   edit:    'Touche un pad pour le renommer, le remplacer, le déplacer ou le supprimer',
-  libre:   'Touche les pads : chacun enchaîne avec le précédent · re-touche pour couper',
+  libre:   'Touche les pads : chacun enchaîne avec le précédent · ■ pour arrêter',
   duoA:    'Touche un pad : il devient l\'ancre A',
   duo:     'Touche d\'autres pads pour entendre A → B en boucle · touche A pour changer d\'ancre',
   pickA:   'Touche le pad qui devient la nouvelle ancre A',
@@ -298,7 +298,6 @@ function soundPad(p, time) {
 
 // Libre
 function playLibre(p) {
-  if (playState === 'pad' && padSoundingId === p.id) { stopAll(); return; }
   if (playState !== 'pad') stopAll();
   playState = 'pad';
   soundPad(p);
@@ -339,7 +338,11 @@ function playDuo(p) {
     renderPads(); renderTransport();
     return;
   }
-  if (p.id === duoA) { stopAll(); return; }
+  if (p.id === duoA) {
+    if (padById(duoB)) { startPadLoop('duo', 0); return; }
+    stopAll(); playState = 'pad'; soundPad(p); renderPads(); renderTransport();
+    return;
+  }
   duoB = p.id;
   startPadLoop('duo', 0);            // on réentend tout de suite A → B
 }
